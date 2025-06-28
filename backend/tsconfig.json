@@ -1,0 +1,38 @@
+// {
+//   "compilerOptions": {
+//     "module": "ES2022",
+//     "target": "ES2022",
+//     "moduleResolution": "NodeNext",
+//     "esModuleInterop": true,
+//     "outDir": "./dist",
+//     "rootDir": "./src"
+//   }
+// }
+{
+  "compilerOptions": {
+    "module": "NodeNext", // or "ES2022"
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "moduleResolution": "NodeNext", // or "Node16" (critical for ESM)
+    "outDir": "./dist",
+    "rootDir": "./src",
+    // Add this to force `.js` extensions in imports
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules"]
+}
+
+// {
+//   "compilerOptions": {
+//     "esModuleInterop": true,
+//     "module": "commonjs",
+//     "target": "es2018",
+//     "outDir": "./dist",
+//     "rootDir": "./src",
+//     "strict": true,
+//     "moduleResolution": "node",
+//     "baseUrl": "./src"
+//   }
+// }
