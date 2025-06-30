@@ -43,7 +43,7 @@ export function validateUserPayload(req:Request, res:Response, next:NextFunction
     next();
 }
 
-export function isAuthenticated(req: Request, res: Response, next: NextFunction) {
+export function authenticate(req: Request, res: Response, next: NextFunction) {
     const token = req?.cookies?.SessionCookie;
     if (!token) {
         logger.warn("Unauthorized access attempt without token");
@@ -63,11 +63,28 @@ export function isAuthenticated(req: Request, res: Response, next: NextFunction)
             // Attach user information to the request object    
             req.user = { id: decoded.id, username: decoded.username };
             next();
-        } else {
-            res.status(401).json({ msg: "Invalid or expired token" });
+        } 
+        else if( typeof decoded === "string" && decoded!=="") {
+            const user = JSON.parse(decoded);
+            logger.info(`User authenticated: ${user.username}`);
+            // Attach user information to the request object
+            req.user = user;
+            next();
+        }
+        else {
+            res.status(401).json({ msg: "Invalid token" });
         }
     } catch (error) {
-        res.status(401).json({ error, msg: "Invalid or expired token" });
+        if(error.name === "TokenExpiredError") {
+            // Handle token expiration specifically
+            logger.warn(`Token expired: ${error.message}`);
+            // give me logic to refresh the token.
+            
+        }
+        else{
+            logger.error(`Token verification failed: ${error.message}`);
+            res.status(401).json({ error, msg: "Invalid or expired token" });
+        }
     }
 }
 

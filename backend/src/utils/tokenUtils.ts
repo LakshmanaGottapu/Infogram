@@ -1,9 +1,9 @@
 import jwt from "jsonwebtoken";
 import logger from "../config/logger.js";
 
-export function generateToken(payload: object): string {
+export function generateToken(payload: object, config: object): string {
     // – returns a signed JWT
-    return jwt.sign(payload, process.env.JWT_SECRET, {expiresIn: '7d'});
+    return jwt.sign(payload, process.env.JWT_SECRET, config);
 }
 
 export function verifyToken(token: string) {

@@ -13,7 +13,7 @@ import dotenv from 'dotenv';
 
 dotenv.config(); // Load environment variables from .env file
 // Update the path if the file is named differently or located elsewhere
-import { isAuthenticated } from './middleware/authMiddleware.js';
+import { authenticate } from './middleware/authMiddleware.js';
 const app:Application = express();
 
 app.use(express.json());
@@ -44,7 +44,7 @@ app.get('/health-db', async (_req: Request, res: Response) => {
   const health = await Health.findById('683fe54b3aeba7d5de0d8853');
   res.send(health?.health);
 });
-app.get("/home", isAuthenticated, (req:Request, res:Response) => { 
+app.get("/home", authenticate, (req:Request, res:Response) => { 
   res.send("Home") 
 });
 

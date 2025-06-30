@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 
+process.env.NODE_ENV = 'test';
 let mongo: MongoMemoryServer;
 
 beforeAll(async () => {
