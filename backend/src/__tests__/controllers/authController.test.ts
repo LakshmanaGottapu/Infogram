@@ -26,6 +26,8 @@ const { registerUser } = await import("../../controllers/authController.js");
 const User = (await import("../../models/User.js")).default;
 const logger = (await import("../../config/logger.js")).default;
 const { loginUser } = await import("../../controllers/authController.js");
+const { refreshToken } = await import("../../controllers/authController.js");
+
 describe("registerUser", () => {
   let req: any;
   let res: any;
@@ -136,7 +138,7 @@ describe("loginUser", () => {
       msg: "Username/email and password are required."
     });
   });
-   
+
   it("should return 401 if user not found", async () => {
     const findOneMock = jest.spyOn(User, "findOne");
     findOneMock.mockReturnValue({
@@ -147,7 +149,7 @@ describe("loginUser", () => {
       $or: [
         { username: "testuser" },
         { email: "test@example.com" }
-      ] 
+      ]
     });
     expect(logger.info).toHaveBeenCalledWith(
       "Login attempt for user: testuser with email: test@example.com"
@@ -224,5 +226,119 @@ describe("loginUser", () => {
     expect(logger.error).toHaveBeenCalledWith("Login attempt failed: DB error");
     expect(res.status).toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith({ error: expect.any(Error) });
+  });
+});
+
+describe("refreshToken", () => {
+  let req: any;
+  let res: any;
+
+  beforeEach(() => {
+    req = {
+      cookies: {
+        refreshToken: "valid_refresh_token"
+      }
+    };
+    res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+      clearCookie: jest.fn().mockReturnThis(),
+      sendStatus: jest.fn()
+    };
+    jest.clearAllMocks();
+    process.env.JWT_SECRET = "jwt_secret";
+    process.env.REFRESH_SECRET = "refresh_secret";
+  });
+
+  it("should return 500 if JWT secrets are missing", async () => {
+    delete process.env.JWT_SECRET;
+    await refreshToken(req, res);
+    expect(logger.error).toHaveBeenCalledWith("JWT secret is not configured");
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({ msg: "Server error" });
+  });
+
+  it("should return 401 if refresh token is missing", async () => {
+    req.cookies = {};
+    await refreshToken(req, res);
+    expect(logger.warn).toHaveBeenCalledWith("Refresh token not found, forcing login.");
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ msg: "Unauthorized access" });
+  });
+
+  it("should refresh token if user is object with id and username", async () => {
+    (jwt.verify as jest.Mock).mockReturnValue({ id: "123", username: "testuser" });
+    await refreshToken(req, res);
+    expect(logger.info).toHaveBeenCalledWith("Refreshing token for user: testuser");
+    expect(jwt.sign).toHaveBeenCalledWith(
+      { id: "123", username: "testuser" },
+      "jwt_secret",
+      { expiresIn: "15m" }
+    );
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ accessToken: "mockedToken" });
+  });
+
+  it("should refresh token if user is string and can be parsed", async () => {
+    (jwt.verify as jest.Mock).mockReturnValue(JSON.stringify({ id: "456", username: "stringuser" }));
+    await refreshToken(req, res);
+    expect(logger.info).toHaveBeenCalledWith("Refreshing token for user: stringuser");
+    expect(jwt.sign).toHaveBeenCalledWith(
+      { id: "456", username: "stringuser" },
+      "jwt_secret",
+      { expiresIn: "15m" }
+    );
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ accessToken: "mockedToken" });
+  });
+
+  it("should clear cookie and return 401 if parsed user is invalid", async () => {
+    (jwt.verify as jest.Mock).mockReturnValue(JSON.stringify({}));
+    await refreshToken(req, res);
+    expect(logger.warn).toHaveBeenCalledWith("Parsed user from refresh token is invalid, forcing login.");
+    expect(res.clearCookie).toHaveBeenCalledWith("refreshToken");
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ msg: "Unauthorized access" });
+  });
+
+  it("should clear cookie and return 401 if parsing user throws error", async () => {
+    (jwt.verify as jest.Mock).mockReturnValue("not_json");
+    await refreshToken(req, res);
+    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("Failed to parse user from refresh token:"));
+    expect(res.clearCookie).toHaveBeenCalledWith("refreshToken");
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ msg: "Unauthorized access" });
+  });
+
+  it("should clear cookie and return 401 if user data is invalid", async () => {
+    (jwt.verify as jest.Mock).mockReturnValue(12345);
+    await refreshToken(req, res);
+    expect(logger.warn).toHaveBeenCalledWith("Invalid user data in refresh token, forcing login.");
+    expect(res.clearCookie).toHaveBeenCalledWith("refreshToken");
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ msg: "Unauthorized access" });
+  });
+
+  it("should handle expired token error", async () => {
+    (jwt.verify as jest.Mock).mockImplementation(() => {
+      const err: any = new Error("Token expired");
+      err.name = "TokenExpiredError";
+      throw err;
+    });
+    await refreshToken(req, res);
+    expect(logger.warn).toHaveBeenCalledWith("Refresh token expired, forcing login.");
+    expect(logger.error).toHaveBeenCalledWith("Failed to refresh token: Token expired");
+    expect(res.clearCookie).toHaveBeenCalledWith("refreshToken");
+    expect(res.sendStatus).toHaveBeenCalledWith(401);
+  });
+
+  it("should handle other errors", async () => {
+    (jwt.verify as jest.Mock).mockImplementation(() => {
+      throw new Error("Some error");
+    });
+    await refreshToken(req, res);
+    expect(logger.error).toHaveBeenCalledWith("Failed to refresh token: Some error");
+    expect(res.clearCookie).toHaveBeenCalledWith("refreshToken");
+    expect(res.sendStatus).toHaveBeenCalledWith(401);
   });
 });
