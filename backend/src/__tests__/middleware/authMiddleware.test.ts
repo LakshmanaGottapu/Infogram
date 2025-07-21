@@ -39,9 +39,9 @@ describe("validateUserPayload middleware", () => {
         jsonMock = jest.fn();
 
         req = { body: {} };
-        res = {
-            status: statusMock,
-            json: jsonMock,
+         res = {
+            status: statusMock as unknown as (code: number) => Response,
+            json: jsonMock as unknown as (body: any) => Response,
         };
         next = jest.fn();
 
@@ -110,9 +110,9 @@ describe("authenticate middleware", () => {
         statusMock = jest.fn().mockReturnThis();
         jsonMock = jest.fn();
         req = { cookies: {} };
-        res = {
-            status: statusMock,
-            json: jsonMock,
+         res = {
+            status: statusMock as unknown as (code: number) => Response,
+            json: jsonMock as unknown as (body: any) => Response,
         };
         next = jest.fn();
         jest.clearAllMocks();

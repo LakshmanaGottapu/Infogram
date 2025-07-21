@@ -1,4 +1,4 @@
-import { User } from "../models/User.js";
+import User from "../models/User.js";
 import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import logger from "../config/logger.js"; 
