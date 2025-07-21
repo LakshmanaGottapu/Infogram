@@ -69,8 +69,7 @@ export async function loginUser(req:Request, res:Response) : Promise<void>{
             secure: true,
             sameSite: 'strict'
         })
-        .status(200)
-        .json({ accessToken });
+        res.status(200).json({ accessToken });
 
     } catch (error) {
         logger.error(`Login attempt failed: ${error.message}`);
