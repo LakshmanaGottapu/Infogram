@@ -69,7 +69,7 @@ export async function loginUser(req:Request, res:Response) : Promise<void>{
             secure: true,
             sameSite: 'strict'
         })
-        res.status(200).json({ accessToken });
+        res.status(200).json({ accessToken, user: { username: user.username, email: user.email } });
 
     } catch (error) {
         logger.error(`Login attempt failed: ${error.message}`);
@@ -133,9 +133,9 @@ export async function refreshToken(req: Request, res: Response) : Promise<void> 
     }
 }
 
-export async function logOut(req: Request, res: Response) : Promise<void> {
+export async function logOut(_: Request, res: Response) : Promise<void> {
     try {
-        res.clearCookie('refreshToken');
+        res.clearCookie('accessToken');
         logger.info("User logged out successfully.");
         res.status(200).json({ msg: "Logged out successfully" });
     } catch (error) {

@@ -10,14 +10,14 @@ import { validateUserPayload } from "../middleware/authMiddleware.js";
 
 const authRouter = Router();
 
-authRouter.post("/api/auth/register", validateUserPayload, registerUser)
+authRouter.post("/api/auth/register", validateUserPayload, registerUser);
 
-authRouter.post("/api/auth/login", loginUser)
+authRouter.post("/api/auth/login", loginUser);
 
 // Refresh endpoint
-authRouter.post('/refresh', refreshToken);
+authRouter.post('/api/auth/refresh', refreshToken);
 
 //Logout endpoint
-authRouter.post('/logout', logOut);
+authRouter.get('/api/auth/logout', logOut);
 
 export default authRouter;

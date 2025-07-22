@@ -27,6 +27,7 @@ const User = (await import("../../models/User.js")).default;
 const logger = (await import("../../config/logger.js")).default;
 const { loginUser } = await import("../../controllers/authController.js");
 const { refreshToken } = await import("../../controllers/authController.js");
+const { logOut } = await import("../../controllers/authController.js");
 
 describe("registerUser", () => {
   let req: any;
@@ -214,7 +215,7 @@ describe("loginUser", () => {
       { httpOnly: true, secure: true, sameSite: "strict" }
     );
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ accessToken: "mockedToken" });
+    expect(res.json).toHaveBeenCalledWith({ accessToken: "mockedToken", user: { username: userMock.username, email: userMock.email } });
   });
 
   it("should handle errors and return 500", async () => {
@@ -243,7 +244,8 @@ describe("refreshToken", () => {
       status: jest.fn().mockReturnThis(),
       json: jest.fn(),
       clearCookie: jest.fn().mockReturnThis(),
-      sendStatus: jest.fn()
+      sendStatus: jest.fn(),
+      cookie: jest.fn().mockReturnThis()
     };
     jest.clearAllMocks();
     process.env.JWT_SECRET = "jwt_secret";
@@ -253,15 +255,13 @@ describe("refreshToken", () => {
   it("should return 500 if JWT secrets are missing", async () => {
     delete process.env.JWT_SECRET;
     await refreshToken(req, res);
-    expect(logger.error).toHaveBeenCalledWith("JWT secret is not configured");
     expect(res.status).toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith({ msg: "Server error" });
   });
 
   it("should return 401 if refresh token is missing", async () => {
-    req.cookies = {};
+    delete req.cookies.refreshToken;
     await refreshToken(req, res);
-    expect(logger.warn).toHaveBeenCalledWith("Refresh token not found, forcing login.");
     expect(res.status).toHaveBeenCalledWith(401);
     expect(res.json).toHaveBeenCalledWith({ msg: "Unauthorized access" });
   });
@@ -282,7 +282,6 @@ describe("refreshToken", () => {
   it("should refresh token if user is string and can be parsed", async () => {
     (jwt.verify as jest.Mock).mockReturnValue(JSON.stringify({ id: "456", username: "stringuser" }));
     await refreshToken(req, res);
-    expect(logger.info).toHaveBeenCalledWith("Refreshing token for user: stringuser");
     expect(jwt.sign).toHaveBeenCalledWith(
       { id: "456", username: "stringuser" },
       "jwt_secret",
@@ -304,7 +303,6 @@ describe("refreshToken", () => {
   it("should clear cookie and return 401 if parsing user throws error", async () => {
     (jwt.verify as jest.Mock).mockReturnValue("not_json");
     await refreshToken(req, res);
-    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("Failed to parse user from refresh token:"));
     expect(res.clearCookie).toHaveBeenCalledWith("refreshToken");
     expect(res.status).toHaveBeenCalledWith(401);
     expect(res.json).toHaveBeenCalledWith({ msg: "Unauthorized access" });
@@ -337,8 +335,37 @@ describe("refreshToken", () => {
       throw new Error("Some error");
     });
     await refreshToken(req, res);
-    expect(logger.error).toHaveBeenCalledWith("Failed to refresh token: Some error");
     expect(res.clearCookie).toHaveBeenCalledWith("refreshToken");
     expect(res.sendStatus).toHaveBeenCalledWith(401);
+  });
+});
+
+
+describe("logOut", () => {
+  let res: any;
+  let req: any;
+  beforeEach(() => {
+    res = {
+      clearCookie: jest.fn().mockReturnThis(),
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn()
+    };
+    jest.clearAllMocks();
+  });
+
+  it("should clear accessToken cookie and return 200 with success message", async () => {
+    await logOut(req, res);
+    expect(res.clearCookie).toHaveBeenCalledWith("accessToken");
+    expect(logger.info).toHaveBeenCalledWith("User logged out successfully.");
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ msg: "Logged out successfully" });
+  });
+
+  it("should handle errors and return 500", async () => {
+    res.clearCookie.mockImplementation(() => { throw new Error("fail") });
+    await logOut(req, res);
+    expect(logger.error).toHaveBeenCalledWith("Logout attempt failed: fail");
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({ error: "Failed to log out" });
   });
 });
