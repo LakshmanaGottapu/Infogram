@@ -55,10 +55,11 @@ const UserSchema = new Schema<IUser>(
     password: { 
       type: String, 
       default: '',
-      minlength: 8,
+      required: function() { return !this.googleId; }, // Password is required only if not using Google login
       validate: { // Custom validator
         validator: function(v: string) {
-          return /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+])/.test(v);
+          if(!v || v === '') return true; // Allow empty password for OAuth users
+          return v.length >= 8 && /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+])/.test(v);
         },
         message: 'Password must contain 1 uppercase, 1 number, 1 symbol'
       },
@@ -138,7 +139,8 @@ UserSchema.virtual('profileUrl').get(function() {
 // Middleware to hash password before saving
 UserSchema.pre<IUser>('save', async function(next) {
   if (!this.isModified('password')) return next();
-  
+  if (!this.password || this.password.trim() === '') return next();
+  // Hash the password
   try {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
@@ -150,6 +152,7 @@ UserSchema.pre<IUser>('save', async function(next) {
 
 // Method to compare passwords
 UserSchema.methods.comparePassword = async function(candidatePassword: string): Promise<boolean> {
+  if (!this.password || this.password === '') return false;
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
