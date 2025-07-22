@@ -78,15 +78,17 @@ export async function loginUser(req:Request, res:Response) : Promise<void>{
     }
 }
 
-export async function refreshToken(req: Request, res: Response) {
+export async function refreshToken(req: Request, res: Response) : Promise<void> {
     if (!process.env.JWT_SECRET || !process.env.REFRESH_SECRET) {
         logger.error("JWT secret is not configured");
-        return res.status(500).json({ msg: "Server error" });
+        res.status(500).json({ msg: "Server error" });
+        return;
     }
     const refreshToken = req.cookies.refreshToken;
     if (!refreshToken) {
         logger.warn("Refresh token not found, forcing login.");
-        return res.status(401).json({ msg: "Unauthorized access" });
+        res.status(401).json({ msg: "Unauthorized access" });
+        return;
     }
     try {
         const user = jwt.verify(refreshToken, process.env.REFRESH_SECRET);
@@ -103,7 +105,8 @@ export async function refreshToken(req: Request, res: Response) {
                 const parsedUser = JSON.parse(user);
                 if (!parsedUser.id || !parsedUser.username) {
                     logger.warn("Parsed user from refresh token is invalid, forcing login.");
-                    return res.clearCookie('refreshToken').status(401).json({ msg: "Unauthorized access" });
+                    res.clearCookie('refreshToken').status(401).json({ msg: "Unauthorized access" });
+                    return;
                 }
                 logger.info(`Refreshing token for user: ${parsedUser.username}`);
                 // Generate new access token
@@ -112,12 +115,14 @@ export async function refreshToken(req: Request, res: Response) {
                 res.status(200).json({ accessToken: newAccessToken });
             } catch (error) {
                 logger.error(`Failed to parse user from refresh token: ${error.message}`);
-                return res.clearCookie('refreshToken').status(401).json({ msg: "Unauthorized access" });
+                res.clearCookie('refreshToken').status(401).json({ msg: "Unauthorized access" });
+                return;
             }
         }
         else {
             logger.warn("Invalid user data in refresh token, forcing login.");
-            return res.clearCookie('refreshToken').status(401).json({ msg: "Unauthorized access" });
+            res.clearCookie('refreshToken').status(401).json({ msg: "Unauthorized access" });
+            return;
         }
     } catch (err) {
         if(err.name === 'TokenExpiredError') {
@@ -127,4 +132,16 @@ export async function refreshToken(req: Request, res: Response) {
         res.clearCookie('refreshToken').sendStatus(401); // Force login
     }
 }
+
+export async function logOut(req: Request, res: Response) : Promise<void> {
+    try {
+        res.clearCookie('refreshToken');
+        logger.info("User logged out successfully.");
+        res.status(200).json({ msg: "Logged out successfully" });
+    } catch (error) {
+        logger.error(`Logout attempt failed: ${error.message}`);
+        res.status(500).json({ error: "Failed to log out" });
+    }
+}
+
 
