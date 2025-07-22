@@ -9,6 +9,8 @@ interface IUserProfile {
 }
 
 interface IUser extends Document {
+  googleId?: string | null; // Nullable for users without Google login
+  // Ensure username is unique, required, and matches regex for alphanumeric and underscores
   username: string;
   email: string;
   password: string;
@@ -25,6 +27,12 @@ interface IUser extends Document {
 
 const UserSchema = new Schema<IUser>(
   {
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true, // Allows for null values without index conflicts
+      default: null
+    },
     username: { 
       type: String, 
       unique: true, 
@@ -46,7 +54,7 @@ const UserSchema = new Schema<IUser>(
     },
     password: { 
       type: String, 
-      required: true,
+      default: '',
       minlength: 8,
       validate: { // Custom validator
         validator: function(v: string) {

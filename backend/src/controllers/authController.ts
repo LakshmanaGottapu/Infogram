@@ -15,18 +15,8 @@ export async function registerUser(req:Request, res:Response){
         else{
             const dBResponse = await User.create({username, email, password});
             logger.info(`User registered successfully: ${username} with email ${email}`);
-            // console.log("user created", dBResponse)
-            // const token = generateToken({ id: dBResponse._id, username: dBResponse.username });
-            // res
-            // .status(201)
-            // .cookie("SessionCookie", token, {
-            //     httpOnly: true,
-            //     secure: process.env.NODE_ENV === "production",
-            //     sameSite: "lax",
-            //     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-            // });
-            const {id, createdAt} = dBResponse;
-            res.status(201).json({id, username, email, createdAt});
+            const {_id, createdAt} = dBResponse;
+            res.status(201).json({id:_id, username, email, createdAt});
         }
     }catch(error){
         logger.error(`Login attempt failed: ${error.message}`);

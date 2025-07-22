@@ -69,7 +69,7 @@ describe("registerUser", () => {
   it("should create user and return 201 if user does not exist", async () => {
     (User.findOne as jest.Mock).mockResolvedValue(null as never);
     const createdUser = {
-      id: "456",
+      _id: "456",
       username: "testuser",
       email: "test@example.com",
       createdAt: "2024-06-01T00:00:00.000Z"
