@@ -12,8 +12,7 @@ jest.unstable_mockModule("../../config/logger.js", () => ({
     info: jest.fn(),
     error: jest.fn(),
   },
-}))
-
+}));
 jest.unstable_mockModule("jsonwebtoken", () => ({
   default: {
     sign: jest.fn(() => "mockedToken"),
@@ -28,6 +27,7 @@ const logger = (await import("../../config/logger.js")).default;
 const { loginUser } = await import("../../controllers/authController.js");
 const { refreshToken } = await import("../../controllers/authController.js");
 const { logOut } = await import("../../controllers/authController.js");
+const { googleCallback } = await import("../../controllers/authController.js");
 
 describe("registerUser", () => {
   let req: any;
@@ -215,7 +215,7 @@ describe("loginUser", () => {
       { httpOnly: true, secure: true, sameSite: "strict" }
     );
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ accessToken: "mockedToken", user: { username: userMock.username, email: userMock.email } });
+    expect(res.json).toHaveBeenCalledWith({ accessToken: "mockedToken", user: { username: userMock.username } });
   });
 
   it("should handle errors and return 500", async () => {
@@ -340,7 +340,6 @@ describe("refreshToken", () => {
   });
 });
 
-
 describe("logOut", () => {
   let res: any;
   let req: any;
@@ -367,5 +366,52 @@ describe("logOut", () => {
     expect(logger.error).toHaveBeenCalledWith("Logout attempt failed: fail");
     expect(res.status).toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith({ error: "Failed to log out" });
+  });
+});
+
+describe("googleCallback", () => {
+  let req: any;
+  let res: any;
+
+  beforeEach(() => {
+    req = {
+      user: {
+        id: "google_id",
+        username: "googleuser"
+      }
+    };
+    res = {
+      cookie: jest.fn().mockReturnThis(),
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn()
+    };
+    process.env.REFRESH_SECRET = "refresh_secret";
+    process.env.JWT_SECRET = "jwt_secret";
+    jest.clearAllMocks();
+  });
+
+  it("should generate tokens, set cookie, and return user info", () => {
+    googleCallback(req, res);
+
+    expect(jwt.sign).toHaveBeenCalledWith(
+      { id: "google_id", username: "googleuser" },
+      "refresh_secret",
+      { expiresIn: "7d" }
+    );
+    expect(jwt.sign).toHaveBeenCalledWith(
+      { id: "google_id", username: "googleuser" },
+      "jwt_secret",
+      { expiresIn: "15m" }
+    );
+    expect(res.cookie).toHaveBeenCalledWith(
+      "refreshToken",
+      "mockedToken",
+      { httpOnly: true, secure: true, sameSite: "strict" }
+    );
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      accessToken: "mockedToken",
+      user: { id: "google_id", username: "googleuser" }
+    });
   });
 });

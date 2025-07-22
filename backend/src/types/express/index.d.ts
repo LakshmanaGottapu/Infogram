@@ -1,13 +1,10 @@
 import {Request} from 'express';
-
+import User from '../../models/User.js';
 
 declare global {
     namespace Express {
         interface Request {
-            user?: {
-                id: string; // or any other user properties you want to include
-                username: string;
-            };
+            user?: User;
         }
     }
 }

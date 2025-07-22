@@ -6,7 +6,7 @@ import logger from "../config/logger.js";
 export async function registerUser(req:Request, res:Response){
     const {username, email, password} = req.body;
     try{
-        const existingUser = await User.findOne({ $or: [{ username }, { email }] });    
+        const existingUser: typeof User | null = await User.findOne({ $or: [{ username }, { email }] });    
         if(existingUser) {
             logger.info(`User registration failed: User with username ${username} or email ${email} already exists.`);
             // console.log("user already exists")
@@ -59,7 +59,7 @@ export async function loginUser(req:Request, res:Response) : Promise<void>{
             secure: true,
             sameSite: 'strict'
         })
-        res.status(200).json({ accessToken, user: { username: user.username, email: user.email } });
+        res.status(200).json({ accessToken, user: { username: user.username } });
 
     } catch (error) {
         logger.error(`Login attempt failed: ${error.message}`);
@@ -121,6 +121,19 @@ export async function refreshToken(req: Request, res: Response) : Promise<void> 
         logger.error(`Failed to refresh token: ${err.message}`);
         res.clearCookie('refreshToken').sendStatus(401); // Force login
     }
+}
+
+export function googleCallback(req: Request, res: Response){
+    // Successful authentication, generate JWT and respond
+    const user = req.user as { id: string, username: string };
+    const refreshToken = jwt.sign({ id: user.id, username: user.username }, process.env.REFRESH_SECRET, {expiresIn: '7d'});
+    const accessToken = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET, {expiresIn: '15m'});
+    res.cookie('refreshToken', refreshToken, { 
+        httpOnly: true,
+        secure: true,
+        sameSite: 'strict'
+    });
+    res.status(200).json({ accessToken, user });
 }
 
 export async function logOut(_: Request, res: Response) : Promise<void> {
