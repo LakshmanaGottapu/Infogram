@@ -29,8 +29,14 @@ export function validateUserPayload(req:Request, res:Response, next:NextFunction
     next();
 }
 
-export function authenticate(req: Request, res: Response, next: NextFunction) {
-    const token = req?.cookies?.SessionCookie;
+export function authenticate(req: Request, res: Response, next: NextFunction):void {
+    if (!req.headers?.authorization) {
+        logger.warn("Unauthorized access attempt without authorization header");
+        res.status(401).json({ msg: "Unauthorized access" });
+        return;
+    }
+    const token = req.headers.authorization.split(" ")[1];
+    // Check if token is present
     if (!token) {
         logger.warn("Unauthorized access attempt without token");
         res.status(401).json({ msg: "Unauthorized access" });

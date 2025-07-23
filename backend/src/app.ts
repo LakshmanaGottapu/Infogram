@@ -44,7 +44,7 @@ app.get('/health-db', async (_req: Request, res: Response) => {
   const health = await Health.findById('683fe54b3aeba7d5de0d8853');
   res.send(health?.health);
 });
-app.get("/home", authenticate, (req:Request, res:Response) => { 
+app.get("/", authenticate, (req:Request, res:Response) => { 
   res.send("Home") 
 });
 

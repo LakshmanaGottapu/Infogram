@@ -109,16 +109,24 @@ describe("authenticate middleware", () => {
     beforeEach(() => {
         statusMock = jest.fn().mockReturnThis();
         jsonMock = jest.fn();
-        req = { cookies: {} };
-         res = {
+        req = { headers: { authorization: "Bearer validtoken" } };
+        res = {
             status: statusMock as unknown as (code: number) => Response,
             json: jsonMock as unknown as (body: any) => Response,
         };
         next = jest.fn();
         jest.clearAllMocks();
     });
-
+    it("should return 401 if authorization header is missing", () => {
+        delete req.headers.authorization;
+        authenticate(req as Request, res as Response, next);
+        expect(logger.warn).toHaveBeenCalledWith("Unauthorized access attempt without authorization header");
+        expect(res.status).toHaveBeenCalledWith(401);
+        expect(res.json).toHaveBeenCalledWith({ msg: "Unauthorized access" });
+        expect(next).not.toHaveBeenCalled();
+    });
     it("should return 401 if no token is present", () => {
+        req.headers.authorization = "Bearer ";
         authenticate(req as Request, res as Response, next);
         expect(logger.warn).toHaveBeenCalledWith("Unauthorized access attempt without token");
         expect(res.status).toHaveBeenCalledWith(401);
