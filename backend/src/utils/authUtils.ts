@@ -1,5 +1,5 @@
+import mongoose from "mongoose";
 import User from "../models/User.js";
-
 // Helper function to generate unique username
 export async function generateUniqueUsername(baseUsername: string): Promise<string> {
   let username = baseUsername;
@@ -16,7 +16,7 @@ export async function handleExistingUserWithEmail(email: string, googleId: strin
   if (existingUser) {
     existingUser.googleId = googleId;
     await existingUser.save();
-    return { id: existingUser._id, username: existingUser.username };
+    return { id: (existingUser._id as mongoose.Types.ObjectId).toString(), username: existingUser.username };
   }
   return null;
 }
@@ -31,7 +31,7 @@ export async function createGoogleUser(profile: any, email: string) {
     email,
     googleId: profile.id
   });
-  
-  return { id: newUser._id, username: newUser.username };
+
+  return { id: (newUser._id as mongoose.Types.ObjectId).toString(), username: newUser.username };
 }
 

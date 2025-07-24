@@ -1,8 +1,11 @@
 import {Request} from 'express';
-import User from '../../models/User.js';
 
 declare global {
     namespace Express {
+        interface User{
+            id: string;
+            username: string;
+        }
         interface Request {
             user?: User;
         }

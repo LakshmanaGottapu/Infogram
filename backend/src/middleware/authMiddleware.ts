@@ -80,5 +80,67 @@ export function authenticate(req: Request, res: Response, next: NextFunction):vo
     }
 }
 
+// Optional authentication - doesn't reject, just sets user if present
+export function optionalAuth(req: Request, res: Response, next: NextFunction): void {
+    // No authorization header? That's fine, continue without user
+    if (!req.headers?.authorization) {
+        req.user = null;
+        return next();
+    }
+
+    const token = req.headers.authorization.split(" ")[1];
+    if (!token) {
+        req.user = null;
+        return next();
+    }
+
+    try {
+        const decoded = verifyToken(token);
+        if (typeof decoded === "object" && decoded !== null && 
+            typeof decoded.id === "string" && typeof decoded.username === "string") {
+            req.user = { id: decoded.id, username: decoded.username };
+        } else if (typeof decoded === "string" && decoded !== "") {
+            req.user = JSON.parse(decoded);
+        } else {
+            req.user = null;
+        }
+    } catch (error) {
+        logger.warn(`Optional auth failed: ${error.message}`);
+        req.user = null;
+    }
+    
+    next();
+}
+
+// Redirect if already authenticated
+export function redirectIfAuthenticated(req: Request, res: Response, next: NextFunction): void {
+    // First check if user is authenticated
+    if (!req.headers?.authorization) {
+        return next(); // Not authenticated, continue to login page
+    }
+
+    const token = req.headers.authorization.split(" ")[1];
+    if (!token) {
+        return next(); // No token, continue to login page
+    }
+
+    try {
+        const decoded = verifyToken(token);
+        if ((typeof decoded === "object" && decoded !== null && 
+             typeof decoded.id === "string") ||
+            (typeof decoded === "string" && decoded !== "")) {
+            // User is authenticated, redirect to dashboard
+            logger.info("Authenticated user redirected from login page");
+            res.redirect('/dashboard');
+            return;
+        }
+    } catch (error) {
+        // Token invalid/expired, continue to login page
+        logger.warn(`Invalid token on login page: ${error.message}`);
+    }
+    
+    next(); // Continue to login page
+}
+
 
 
