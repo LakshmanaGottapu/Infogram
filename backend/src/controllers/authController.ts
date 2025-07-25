@@ -10,7 +10,7 @@ export async function registerUser(req: Request, res: Response) {
         if (existingUser) {
             logger.info(`User registration failed: User with username ${username} or email ${email} already exists.`);
             // console.log("user already exists")
-            res.status(409).json({ error: "user with the given mail already exists" });
+            res.status(409).json({ error: `User registration failed: User with username ${username} or email ${email} already exists.` });
         }
         else {
             const dBResponse = await User.create({ username, email, password });
@@ -159,7 +159,9 @@ export async function logOut(_: Request, res: Response): Promise<void> {
 
 export async function getCurrentUser(req: Request, res: Response): Promise<void> {
     const user = req.user as { id: string, username: string };
-    res.status(200).json({
+    res.status(200)
+    .setHeader('Cache-Control', 'no-store') // Prevent caching
+    .json({
         id: user.id,
         username: user.username,
         // profilePictureUrl: user.profilePictureUrl || null
