@@ -13,18 +13,25 @@ function useAuth() {
 
   useEffect(() => {
     const fetchUser = async () => {
-      const currentUser = await getCurrentUser();
-      if (!currentUser) {
-        handleNavigation("/login");
-      } else {
-        setUser(currentUser);
+      try{
+        const currentUser = await getCurrentUser();
+        if (!currentUser) {
+          handleNavigation("/");
+        } else {
+          setUser(currentUser);
+        }
+      } catch (error) {
+        console.error("Error fetching user:", error);
+        setUser(null);
+        // Optionally redirect to login or show an error message
+        if (location.pathname !== "/") handleNavigation("/");
       }
     };
 
     fetchUser();
   }, [location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return user;
+  return {user, setUser};
 }
 
 export default useAuth;

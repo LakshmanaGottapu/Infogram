@@ -63,7 +63,7 @@ describe("registerUser", () => {
       "User registration failed: User with username testuser or email test@example.com already exists."
     );
     expect(res.status).toHaveBeenCalledWith(409);
-    expect(res.json).toHaveBeenCalledWith({ msg: "user already exists" });
+    expect(res.json).toHaveBeenCalledWith({error: "user with the given mail already exists"});
   });
 
   it("should create user and return 201 if user does not exist", async () => {
@@ -215,7 +215,7 @@ describe("loginUser", () => {
       { httpOnly: true, secure: true, sameSite: "strict" }
     );
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ accessToken: "mockedToken", user: { username: userMock.username } });
+    expect(res.json).toHaveBeenCalledWith({ accessToken: "mockedToken", username: userMock.username });
   });
 
   it("should handle errors and return 500", async () => {

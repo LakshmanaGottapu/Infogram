@@ -32,14 +32,14 @@ export function validateUserPayload(req:Request, res:Response, next:NextFunction
 export function authenticate(req: Request, res: Response, next: NextFunction):void {
     if (!req.headers?.authorization) {
         logger.warn("Unauthorized access attempt without authorization header");
-        res.status(401).json({ msg: "Unauthorized access" });
+        res.status(401).json({ msg: "Unauthorized access attempt without authorization header" });
         return;
     }
     const token = req.headers.authorization.split(" ")[1];
     // Check if token is present
     if (!token) {
-        logger.warn("Unauthorized access attempt without token");
-        res.status(401).json({ msg: "Unauthorized access" });
+        logger.warn("Unauthorized access attempt without access token");
+        res.status(401).json({ msg: "Unauthorized access attempt without access token" });
         return;
     }
     try {
@@ -71,11 +71,11 @@ export function authenticate(req: Request, res: Response, next: NextFunction):vo
             // Handle token expiration specifically
             logger.warn(`Token expired: ${error.message}`);
             // give me logic to refresh the token.
-            
+            res.status(401).json({ msg: "Token expired, please refresh" });
         }
         else{
             logger.error(`Token verification failed: ${error.message}`);
-            res.status(401).json({ error, msg: "Invalid or expired token" });
+            res.status(401).json({ error, msg: "Invalid token" });
         }
     }
 }
