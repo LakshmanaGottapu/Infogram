@@ -2,7 +2,8 @@ import User from "../models/User.js";
 import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import logger from "../config/logger.js";
-
+const ACCESS_TOKEN_DURATION = '1m';
+const REFRESH_TOKEN_DURATION = '3m';
 export async function registerUser(req: Request, res: Response) {
     const { username, email, password } = req.body;
     try {
@@ -51,8 +52,8 @@ export async function loginUser(req: Request, res: Response): Promise<void> {
             return;
         }
         logger.info(`User logged in successfully: ${username} with email ${email}`);
-        const refreshToken = jwt.sign({ id: user._id, username: user.username }, process.env.REFRESH_SECRET, { expiresIn: '7d' });
-        const accessToken = jwt.sign({ id: user._id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '15m' });
+        const refreshToken = jwt.sign({ id: user._id, username: user.username }, process.env.REFRESH_SECRET, { expiresIn: REFRESH_TOKEN_DURATION });
+        const accessToken = jwt.sign({ id: user._id, username: user.username }, process.env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_DURATION });
 
         res.cookie('refreshToken', refreshToken, {
             httpOnly: true,
@@ -92,7 +93,7 @@ export async function refreshToken(req: Request, res: Response): Promise<void> {
             // If the user is an object, ensure it has the necessary properties
             logger.info(`Refreshing token for user: ${user.username}`);
             // Assuming user is an object with id and username properties
-            const newAccessToken = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '15m' });
+            const newAccessToken = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_DURATION });
             res.status(200).json({ accessToken: newAccessToken, id: user.id, username: user.username });
         }
         else if (typeof user === 'string' && user !== "") {
@@ -106,7 +107,7 @@ export async function refreshToken(req: Request, res: Response): Promise<void> {
                 }
                 logger.info(`Refreshing token for user: ${parsedUser.username}`);
                 // Generate new access token
-                const newAccessToken = jwt.sign({ id: parsedUser.id, username: parsedUser.username }, process.env.JWT_SECRET, { expiresIn: '15m' });
+                const newAccessToken = jwt.sign({ id: parsedUser.id, username: parsedUser.username }, process.env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_DURATION });
                 // Send the new access token in the response
                 res.status(200).json({ accessToken: newAccessToken, id: parsedUser.id, username: parsedUser.username });
             } catch (error) {
@@ -132,8 +133,8 @@ export async function refreshToken(req: Request, res: Response): Promise<void> {
 export function googleCallback(req: Request, res: Response) {
     // Successful authentication, generate JWT and respond
     const user = req.user as { id: string, username: string };
-    const refreshToken = jwt.sign({ id: user.id, username: user.username }, process.env.REFRESH_SECRET, { expiresIn: '7d' });
-    const accessToken = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '15m' });
+    const refreshToken = jwt.sign({ id: user.id, username: user.username }, process.env.REFRESH_SECRET, { expiresIn: REFRESH_TOKEN_DURATION });
+    const accessToken = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_DURATION });
     res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
         secure: true,
