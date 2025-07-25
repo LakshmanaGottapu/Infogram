@@ -9,8 +9,8 @@ import Health from './models/Health.js';
 import userRouter from './routes/userRouter.js';
 import authRouter from './routes/authRouter.js';
 import setupSwagger from './config/swagger.js'; // Import the Swagger setup function
+import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
-
 dotenv.config(); // Load environment variables from .env file
 // Update the path if the file is named differently or located elsewhere
 import { authenticate, optionalAuth } from './middleware/authMiddleware.js';
@@ -18,6 +18,8 @@ const app:Application = express();
 
 app.use(express.json());
 app.use(cors(corsOptions));
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser()); // Use cookie-parser to handle cookies
 app.use('/api/auth', authLimiter);
 app.use(securityMiddleware);
 app.use(httpLogger);

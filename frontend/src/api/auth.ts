@@ -7,7 +7,6 @@ export async function getCurrentUser() {
                     'Content-Type': 'application/json',
                     'authorization': `Bearer ${sessionStorage.getItem('accessToken') || ''}`
                 },
-                credentials: 'include',
             });
 
             if (!response.ok) {
@@ -18,6 +17,7 @@ export async function getCurrentUser() {
                     headers: {
                         'Content-Type': 'application/json',
                     },
+                    // credentials:'include'
                 });
                 if(!response.ok) 
                     return null;
