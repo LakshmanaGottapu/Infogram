@@ -1,10 +1,10 @@
 import './App.css'
 import Feed from './components/Feed';
 import RegisterLogin from './components/RegisterLogin';
-import useAuth from './hooks/useAuth';
-
+import { useContext } from 'react';
+import authContext from './context/authContext';
 function App() {
-  const {user, setUser, loading} = useAuth();
+  const {user, setUser, loading} = useContext(authContext);
   function handleLogout() {
     //clear refresh token by calling logout endpoint
     fetch('/api/auth/logout')
