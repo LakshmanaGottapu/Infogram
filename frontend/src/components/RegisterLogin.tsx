@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react'
-import type { User } from '../types/user';
-function RegisterLogin({setUser}: {setUser: React.Dispatch<React.SetStateAction<User | null>>}) {
+import useAuth from '../context/useAuth';
+function RegisterLogin() {
+    const {setUser} = useAuth();
     const [isLogin, setIsLogin] = useState(true);
     const formRef = useRef<HTMLFormElement>(null);
     const [errors, setErrors] = useState<string[]>([]);
@@ -137,8 +138,8 @@ function RegisterLogin({setUser}: {setUser: React.Dispatch<React.SetStateAction<
             <button className="google-button mt-2" onClick={handleGoogleSignIn}>Login with Google</button>
             {errors.length > 0 && (
                 <div className="error-messages">
-                    {errors.map((error, index) => (
-                        <p key={index} className="text-red-500">{error}</p>
+                    {errors.map((error, idx) => (
+                        <p key={error.slice(0, 20) + idx} className="text-red-500">{error}</p>
                     ))}
                 </div>
             )}

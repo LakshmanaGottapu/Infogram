@@ -1,5 +1,5 @@
 import type { User } from '../types/user.ts';
-export async function getCurrentUser() {
+async function getCurrentUser() {
     try {
         // Fetch current user from the backend
         if (!sessionStorage.getItem('accessToken')) {
@@ -39,6 +39,25 @@ export async function getCurrentUser() {
         console.error('Error fetching current user:', error);
         return null;
     }
+}
+export async function fetchCurrentUser(retries = 2) {
+    let currentUser: null | User;
+    for (let i = 0; i < retries; i++) {
+        try {
+            currentUser = await getCurrentUser();
+            if (currentUser)
+                return currentUser;
+            else if (!currentUser && i < retries) continue;
+            else return null;
+        } catch (error) {
+            if (i < retries) await new Promise((res) => setTimeout(res, 1000));
+            else {
+                console.error("Error fetching user:", error);
+                return null;
+            }
+        }
+    }
+    return null;
 }
 async function refreshToken() {
     try {
