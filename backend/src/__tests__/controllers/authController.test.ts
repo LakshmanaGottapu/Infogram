@@ -21,397 +21,424 @@ jest.unstable_mockModule("jsonwebtoken", () => ({
 }));
 
 const jwt = (await import("jsonwebtoken")).default;
-const { registerUser } = await import("../../controllers/authController.js");
 const User = (await import("../../models/User.js")).default;
 const logger = (await import("../../config/logger.js")).default;
-const { loginUser } = await import("../../controllers/authController.js");
-const { refreshToken } = await import("../../controllers/authController.js");
-const { logOut } = await import("../../controllers/authController.js");
-const { googleCallback } = await import("../../controllers/authController.js");
+const { registerUser, loginUser, refreshToken, logOut, googleCallback, ACCESS_TOKEN_DURATION, REFRESH_TOKEN_DURATION } = await import("../../controllers/authController.js");
 
-describe("registerUser", () => {
-  let req: any;
-  let res: any;
+describe("authController", () => {
+  describe("registerUser", () => {
+    let req: any;
+    let res: any;
 
-  beforeEach(() => {
-    req = {
-      body: {
+    beforeEach(() => {
+      req = {
+        body: {
+          username: "testuser",
+          email: "test@example.com",
+          password: "password123"
+        }
+      };
+      res = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn()
+      };
+      jest.clearAllMocks();
+    });
+
+    it("should return 409 if user already exists", async () => {
+      (User.findOne as jest.Mock).mockResolvedValue({ _id: "123" } as never);
+
+      await registerUser(req, res);
+
+      expect(User.findOne).toHaveBeenCalledWith({
+        $or: [
+          { username: "testuser" },
+          { email: "test@example.com" }
+        ]
+      });
+      expect(logger.info).toHaveBeenCalledWith(
+        "User registration failed: User with username testuser or email test@example.com already exists."
+      );
+      expect(res.status).toHaveBeenCalledWith(409);
+      expect(res.json).toHaveBeenCalledWith({ error: "User registration failed: User with username testuser or email test@example.com already exists." });
+    });
+
+    it("should create user and return 201 if user does not exist", async () => {
+      (User.findOne as jest.Mock).mockResolvedValue(null as never);
+      const createdUser = {
+        _id: "456",
+        username: "testuser",
+        email: "test@example.com",
+        createdAt: "2024-06-01T00:00:00.000Z"
+      };
+      (User.create as jest.Mock).mockResolvedValue(createdUser as never);
+
+      await registerUser(req, res);
+
+      expect(User.create).toHaveBeenCalledWith({
         username: "testuser",
         email: "test@example.com",
         password: "password123"
-      }
-    };
-    res = {
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn()
-    };
-    jest.clearAllMocks();
-  });
-
-  it("should return 409 if user already exists", async () => {
-    (User.findOne as jest.Mock).mockResolvedValue({ _id: "123" } as never);
-
-    await registerUser(req, res);
-
-    expect(User.findOne).toHaveBeenCalledWith({
-      $or: [
-        { username: "testuser" },
-        { email: "test@example.com" }
-      ]
-    });
-    expect(logger.info).toHaveBeenCalledWith(
-      "User registration failed: User with username testuser or email test@example.com already exists."
-    );
-    expect(res.status).toHaveBeenCalledWith(409);
-    expect(res.json).toHaveBeenCalledWith({error: "user with the given mail already exists"});
-  });
-
-  it("should create user and return 201 if user does not exist", async () => {
-    (User.findOne as jest.Mock).mockResolvedValue(null as never);
-    const createdUser = {
-      _id: "456",
-      username: "testuser",
-      email: "test@example.com",
-      createdAt: "2024-06-01T00:00:00.000Z"
-    };
-    (User.create as jest.Mock).mockResolvedValue(createdUser as never);
-
-    await registerUser(req, res);
-
-    expect(User.create).toHaveBeenCalledWith({
-      username: "testuser",
-      email: "test@example.com",
-      password: "password123"
-    });
-    expect(logger.info).toHaveBeenCalledWith(
-      "User registered successfully: testuser with email test@example.com"
-    );
-    expect(res.status).toHaveBeenCalledWith(201);
-    expect(res.json).toHaveBeenCalledWith({
-      id: "456",
-      username: "testuser",
-      email: "test@example.com",
-      createdAt: "2024-06-01T00:00:00.000Z"
-    });
-  });
-
-  it("should handle errors and return 500", async () => {
-    (User.findOne as jest.Mock).mockRejectedValue(new Error("DB error") as never);
-
-    await registerUser(req, res);
-
-    expect(logger.error).toHaveBeenCalledWith(
-      "Login attempt failed: DB error"
-    );
-    expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({ error: expect.any(Error) });
-  });
-});
-
-describe("loginUser", () => {
-  let req: any;
-  let res: any;
-
-  beforeEach(() => {
-    req = {
-      body: {
+      });
+      expect(logger.info).toHaveBeenCalledWith(
+        "User registered successfully: testuser with email test@example.com"
+      );
+      expect(res.status).toHaveBeenCalledWith(201);
+      expect(res.json).toHaveBeenCalledWith({
+        id: "456",
         username: "testuser",
         email: "test@example.com",
-        password: "password123"
-      }
-    };
-    res = {
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn(),
-      cookie: jest.fn().mockReturnThis()
-    };
-    jest.clearAllMocks();
-  });
+        createdAt: "2024-06-01T00:00:00.000Z"
+      });
+    });
 
-  it("should return 400 if password or username/email is missing", async () => {
-    req.body = { username: "", email: "", password: "" };
-    await loginUser(req, res);
-    expect(logger.warn).toHaveBeenCalledWith(
-      "Login attempt failed: Username/email and password are required."
-    );
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({
-      msg: "Username/email and password are required."
+    it("should handle errors and return 500", async () => {
+      (User.findOne as jest.Mock).mockRejectedValue(new Error("DB error") as never);
+
+      await registerUser(req, res);
+
+      expect(logger.error).toHaveBeenCalledWith(
+        "Login attempt failed: DB error"
+      );
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({ error: expect.any(Error) });
     });
   });
 
-  it("should return 401 if user not found", async () => {
-    const findOneMock = jest.spyOn(User, "findOne");
-    findOneMock.mockReturnValue({
-      select: jest.fn().mockResolvedValue(null as never)
-    } as never);
-    await loginUser(req, res);
-    expect(User.findOne).toHaveBeenCalledWith({
-      $or: [
-        { username: "testuser" },
-        { email: "test@example.com" }
-      ]
+  describe("loginUser", () => {
+    let req: any;
+    let res: any;
+
+    beforeEach(() => {
+      req = {
+        body: {
+          username: "testuser",
+          email: "test@example.com",
+          password: "password123"
+        }
+      };
+      res = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+        cookie: jest.fn().mockReturnThis()
+      };
+      jest.clearAllMocks();
     });
-    expect(logger.info).toHaveBeenCalledWith(
-      "Login attempt for user: testuser with email: test@example.com"
-    );
-    expect(logger.warn).toHaveBeenCalledWith(
-      "Login attempt failed: No user found with username testuser or email test@example.com."
-    );
-    expect(res.status).toHaveBeenCalledWith(401);
-    expect(res.json).toHaveBeenCalledWith({ msg: "Invalid credentials" });
+
+    it("should return 400 if password or username/email is missing", async () => {
+      req.body = { username: "", email: "", password: "" };
+      await loginUser(req, res);
+      expect(logger.warn).toHaveBeenCalledWith(
+        "Login attempt failed: Username/email and password are required."
+      );
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        msg: "Username/email and password are required."
+      });
+    });
+
+    it("should return 401 if user not found", async () => {
+      const findOneMock = jest.spyOn(User, "findOne");
+      findOneMock.mockReturnValue({
+        select: jest.fn().mockResolvedValue(null as never)
+      } as never);
+      await loginUser(req, res);
+      expect(User.findOne).toHaveBeenCalledWith({
+        $or: [
+          { username: "testuser" },
+          { email: "test@example.com" }
+        ]
+      });
+      expect(logger.info).toHaveBeenCalledWith(
+        "Login attempt for user: testuser with email: test@example.com"
+      );
+      expect(logger.warn).toHaveBeenCalledWith(
+        "Login attempt failed: No user found with username testuser or email test@example.com."
+      );
+      expect(res.status).toHaveBeenCalledWith(401);
+      expect(res.json).toHaveBeenCalledWith({ msg: "Invalid credentials" });
+    });
+
+    it("should return 401 if password does not match", async () => {
+      const userMock = {
+        comparePassword: jest.fn().mockResolvedValue(false as never),
+        username: "testuser",
+        email: "test@example.com"
+      };
+      const selectMock = jest.fn().mockResolvedValue(userMock as never);
+      const findOneMock = jest.spyOn(User, "findOne");
+      findOneMock.mockReturnValue({
+        select: selectMock
+      } as any);
+
+      await loginUser(req, res);
+      expect(logger.warn).toHaveBeenCalledWith("Login attempt failed: Password mismatch for user testuser or email test@example.com.");
+      expect(res.status).toHaveBeenCalledWith(401);
+      expect(res.json).toHaveBeenCalledWith({ msg: "Invalid credentials" });
+    });
+
+    it("should login user and set tokens if credentials are valid", async () => {
+      const userMock = {
+        _id: "789",
+        username: "testuser",
+        email: "test@example.com",
+        comparePassword: jest.fn().mockResolvedValue(true as never)
+      };
+      const selectMock = jest.fn().mockResolvedValue(userMock as never);
+      const findoneMock = jest.spyOn(User, "findOne");
+      findoneMock.mockReturnValue({
+        select: selectMock
+      } as never);
+
+      process.env.REFRESH_SECRET = "refresh_secret";
+      process.env.JWT_SECRET = "jwt_secret";
+      await loginUser(req, res);
+      expect(logger.info).toHaveBeenCalledWith(
+        "User logged in successfully: testuser with email test@example.com"
+      );
+      expect(jwt.sign).toHaveBeenCalledWith(
+        { id: "789", username: "testuser" },
+        "refresh_secret",
+        { expiresIn: REFRESH_TOKEN_DURATION }
+      );
+      expect(jwt.sign).toHaveBeenCalledWith(
+        { id: "789", username: "testuser" },
+        "jwt_secret",
+        { expiresIn: ACCESS_TOKEN_DURATION }
+      );
+      expect(res.cookie).toHaveBeenCalledWith(
+        "refreshToken",
+        "mockedToken",
+        { httpOnly: true, secure: true, sameSite: "strict" }
+      );
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({ accessToken: "mockedToken", id: userMock._id, username: userMock.username });
+    });
+
+    it("should handle errors and return 500", async () => {
+      const findOneMock = jest.spyOn(User, "findOne");
+      findOneMock.mockReturnValue({
+        select: jest.fn().mockRejectedValue(new Error("DB error") as never)
+      } as never);
+      await loginUser(req, res);
+      expect(logger.error).toHaveBeenCalledWith("Login attempt failed: DB error");
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({ error: expect.any(Error) });
+    });
   });
 
-  it("should return 401 if password does not match", async () => {
-    const userMock = {
-      comparePassword: jest.fn().mockResolvedValue(false as never),
-      username: "testuser",
-      email: "test@example.com"
-    };
-    const selectMock = jest.fn().mockResolvedValue(userMock as never);
-    const findOneMock = jest.spyOn(User, "findOne");
-    findOneMock.mockReturnValue({
-      select: selectMock
-    } as any);
+  describe("refreshToken", () => {
+    let req: any;
+    let res: any;
 
-    await loginUser(req, res);
-    expect(logger.warn).toHaveBeenCalledWith("Login attempt failed: Password mismatch for user testuser or email test@example.com.");
-    expect(res.status).toHaveBeenCalledWith(401);
-    expect(res.json).toHaveBeenCalledWith({ msg: "Invalid credentials" });
+    beforeEach(() => {
+      req = {
+        cookies: {
+          refreshToken: "valid_refresh_token"
+        }
+      };
+      res = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+        clearCookie: jest.fn().mockReturnThis(),
+        sendStatus: jest.fn(),
+        cookie: jest.fn().mockReturnThis()
+      };
+      jest.clearAllMocks();
+      process.env.JWT_SECRET = "jwt_secret";
+      process.env.REFRESH_SECRET = "refresh_secret";
+    });
+
+    it("should return 500 if JWT secrets are missing", async () => {
+      delete process.env.JWT_SECRET;
+      await refreshToken(req, res);
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({ msg: "Server error" });
+    });
+
+    it("should return 401 if refresh token is missing", async () => {
+      delete req.cookies.refreshToken;
+      await refreshToken(req, res);
+      expect(res.status).toHaveBeenCalledWith(401);
+      expect(res.json).toHaveBeenCalledWith({ msg: "No refresh token found" });
+    });
+
+    it("should refresh token if user is object with id and username", async () => {
+      (jwt.verify as jest.Mock).mockReturnValue({ id: "123", username: "testuser" });
+      await refreshToken(req, res);
+      expect(logger.info).toHaveBeenCalledWith("Refreshing token for user: testuser");
+      expect(jwt.sign).toHaveBeenCalledWith(
+        { id: "123", username: "testuser" },
+        "jwt_secret",
+        { expiresIn: ACCESS_TOKEN_DURATION }
+      );
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({ accessToken: "mockedToken", id: "123", username: "testuser" });
+    });
+
+    it("should refresh token if user is string and can be parsed", async () => {
+      (jwt.verify as jest.Mock).mockReturnValue(JSON.stringify({ id: "456", username: "stringuser" }));
+      await refreshToken(req, res);
+      expect(jwt.sign).toHaveBeenCalledWith(
+        { id: "456", username: "stringuser" },
+        "jwt_secret",
+        { expiresIn: ACCESS_TOKEN_DURATION }
+      );
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({ accessToken: "mockedToken", id: "456", username: "stringuser" });
+    });
+
+    it("should clear cookie and return 401 if parsed user is invalid", async () => {
+      (jwt.verify as jest.Mock).mockReturnValue(JSON.stringify({}));
+      await refreshToken(req, res);
+      expect(logger.warn).toHaveBeenCalledWith("Parsed user from refresh token is invalid, forcing login.");
+      expect(res.clearCookie).toHaveBeenCalledWith("refreshToken");
+      expect(res.status).toHaveBeenCalledWith(401);
+      expect(res.json).toHaveBeenCalledWith({ msg: "Unauthorized access" });
+    });
+
+    it("should clear cookie and return 401 if parsing user throws error", async () => {
+      (jwt.verify as jest.Mock).mockReturnValue("not_json");
+      await refreshToken(req, res);
+      expect(res.clearCookie).toHaveBeenCalledWith("refreshToken");
+      expect(res.status).toHaveBeenCalledWith(401);
+      expect(res.json).toHaveBeenCalledWith({ msg: "Unauthorized access" });
+    });
+
+    it("should clear cookie and return 401 if user data is invalid", async () => {
+      (jwt.verify as jest.Mock).mockReturnValue(12345);
+      await refreshToken(req, res);
+      expect(logger.warn).toHaveBeenCalledWith("Invalid user data in refresh token, forcing login.");
+      expect(res.clearCookie).toHaveBeenCalledWith("refreshToken");
+      expect(res.status).toHaveBeenCalledWith(401);
+      expect(res.json).toHaveBeenCalledWith({ msg: "Unauthorized access" });
+    });
+
+    it("should handle expired token error", async () => {
+      (jwt.verify as jest.Mock).mockImplementation(() => {
+        const err: any = new Error("Token expired");
+        err.name = "TokenExpiredError";
+        throw err;
+      });
+      await refreshToken(req, res);
+      expect(logger.warn).toHaveBeenCalledWith("Refresh token expired, forcing login.");
+      expect(logger.error).toHaveBeenCalledWith("Failed to refresh token: Token expired");
+      expect(res.clearCookie).toHaveBeenCalledWith("refreshToken");
+      expect(res.sendStatus).toHaveBeenCalledWith(401);
+    });
+
+    it("should handle other errors", async () => {
+      (jwt.verify as jest.Mock).mockImplementation(() => {
+        throw new Error("Some error");
+      });
+      await refreshToken(req, res);
+      expect(res.clearCookie).toHaveBeenCalledWith("refreshToken");
+      expect(res.sendStatus).toHaveBeenCalledWith(401);
+    });
   });
 
-  it("should login user and set tokens if credentials are valid", async () => {
-    const userMock = {
-      _id: "789",
-      username: "testuser",
-      email: "test@example.com",
-      comparePassword: jest.fn().mockResolvedValue(true as never)
-    };
-    const selectMock = jest.fn().mockResolvedValue(userMock as never);
-    const findoneMock = jest.spyOn(User, "findOne");
-    findoneMock.mockReturnValue({
-      select: selectMock
-    } as never);
+  describe("logOut", () => {
+    let res: any;
+    let req: any;
+    beforeEach(() => {
+      res = {
+        clearCookie: jest.fn().mockReturnThis(),
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn()
+      };
+      jest.clearAllMocks();
+    });
 
-    process.env.REFRESH_SECRET = "refresh_secret";
-    process.env.JWT_SECRET = "jwt_secret";
-    await loginUser(req, res);
-    expect(logger.info).toHaveBeenCalledWith(
-      "User logged in successfully: testuser with email test@example.com"
-    );
-    expect(jwt.sign).toHaveBeenCalledWith(
-      { id: "789", username: "testuser" },
-      "refresh_secret",
-      { expiresIn: "7d" }
-    );
-    expect(jwt.sign).toHaveBeenCalledWith(
-      { id: "789", username: "testuser" },
-      "jwt_secret",
-      { expiresIn: "15m" }
-    );
-    expect(res.cookie).toHaveBeenCalledWith(
-      "refreshToken",
-      "mockedToken",
-      { httpOnly: true, secure: true, sameSite: "strict" }
-    );
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ accessToken: "mockedToken", username: userMock.username });
+    it("should clear accessToken cookie and return 200 with success message", async () => {
+      await logOut(req, res);
+      expect(res.clearCookie).toHaveBeenCalledWith("refreshToken", {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'strict'
+      });
+      expect(logger.info).toHaveBeenCalledWith("User logged out successfully.");
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({ msg: "Logged out successfully" });
+    });
+
+    it("should handle errors and return 500", async () => {
+      res.clearCookie.mockImplementation(() => { throw new Error("fail") });
+      await logOut(req, res);
+      expect(logger.error).toHaveBeenCalledWith("Logout attempt failed: fail");
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({ error: "Failed to log out" });
+    });
   });
 
-  it("should handle errors and return 500", async () => {
-    const findOneMock = jest.spyOn(User, "findOne");
-    findOneMock.mockReturnValue({
-      select: jest.fn().mockRejectedValue(new Error("DB error") as never)
-    } as never);
-    await loginUser(req, res);
-    expect(logger.error).toHaveBeenCalledWith("Login attempt failed: DB error");
-    expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({ error: expect.any(Error) });
+  describe("googleCallback", () => {
+    let req: any;
+    let res: any;
+
+    beforeEach(() => {
+      req = {
+        user: {
+          id: "google_id",
+          username: "googleuser"
+        },
+
+      };
+      res = {
+        cookie: jest.fn().mockReturnThis(),
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+        redirect: jest.fn()
+      };
+      process.env.REFRESH_SECRET = "refresh_secret";
+      process.env.JWT_SECRET = "jwt_secret";
+      jest.clearAllMocks();
+    });
+
+    it("should generate tokens, set cookie, and return user info", () => {
+      googleCallback(req, res);
+
+      expect(jwt.sign).toHaveBeenCalledWith(
+        { id: "google_id", username: "googleuser" },
+        "refresh_secret",
+        { expiresIn: REFRESH_TOKEN_DURATION }
+      );
+      expect(res.cookie).toHaveBeenCalledWith(
+        "refreshToken",
+        "mockedToken",
+        { httpOnly: true, secure: true, sameSite: "strict" }
+      );
+      expect(res.redirect).toHaveBeenCalledWith("http://localhost:5173");
+    });
+  });
+
+  describe("getCurrentUser", () => {
+    let req: any;
+    let res: any;
+
+    beforeEach(() => {
+      req = {
+        user: {
+          id: "user123",
+          username: "testuser"
+        }
+      };
+      res = {
+        status: jest.fn().mockReturnThis(),
+        setHeader: jest.fn().mockReturnThis(),
+        json: jest.fn()
+      };
+      jest.clearAllMocks();
+    });
+
+    it("should return 200 and user info with no-store cache header", async () => {
+      await (await import("../../controllers/authController.js")).getCurrentUser(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.setHeader).toHaveBeenCalledWith("Cache-Control", "no-store");
+      expect(res.json).toHaveBeenCalledWith({
+        id: "user123",
+        username: "testuser",
+      });
+    });
   });
 });
 
-describe("refreshToken", () => {
-  let req: any;
-  let res: any;
-
-  beforeEach(() => {
-    req = {
-      cookies: {
-        refreshToken: "valid_refresh_token"
-      }
-    };
-    res = {
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn(),
-      clearCookie: jest.fn().mockReturnThis(),
-      sendStatus: jest.fn(),
-      cookie: jest.fn().mockReturnThis()
-    };
-    jest.clearAllMocks();
-    process.env.JWT_SECRET = "jwt_secret";
-    process.env.REFRESH_SECRET = "refresh_secret";
-  });
-
-  it("should return 500 if JWT secrets are missing", async () => {
-    delete process.env.JWT_SECRET;
-    await refreshToken(req, res);
-    expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({ msg: "Server error" });
-  });
-
-  it("should return 401 if refresh token is missing", async () => {
-    delete req.cookies.refreshToken;
-    await refreshToken(req, res);
-    expect(res.status).toHaveBeenCalledWith(401);
-    expect(res.json).toHaveBeenCalledWith({ msg: "Unauthorized access" });
-  });
-
-  it("should refresh token if user is object with id and username", async () => {
-    (jwt.verify as jest.Mock).mockReturnValue({ id: "123", username: "testuser" });
-    await refreshToken(req, res);
-    expect(logger.info).toHaveBeenCalledWith("Refreshing token for user: testuser");
-    expect(jwt.sign).toHaveBeenCalledWith(
-      { id: "123", username: "testuser" },
-      "jwt_secret",
-      { expiresIn: "15m" }
-    );
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ accessToken: "mockedToken" });
-  });
-
-  it("should refresh token if user is string and can be parsed", async () => {
-    (jwt.verify as jest.Mock).mockReturnValue(JSON.stringify({ id: "456", username: "stringuser" }));
-    await refreshToken(req, res);
-    expect(jwt.sign).toHaveBeenCalledWith(
-      { id: "456", username: "stringuser" },
-      "jwt_secret",
-      { expiresIn: "15m" }
-    );
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ accessToken: "mockedToken" });
-  });
-
-  it("should clear cookie and return 401 if parsed user is invalid", async () => {
-    (jwt.verify as jest.Mock).mockReturnValue(JSON.stringify({}));
-    await refreshToken(req, res);
-    expect(logger.warn).toHaveBeenCalledWith("Parsed user from refresh token is invalid, forcing login.");
-    expect(res.clearCookie).toHaveBeenCalledWith("refreshToken");
-    expect(res.status).toHaveBeenCalledWith(401);
-    expect(res.json).toHaveBeenCalledWith({ msg: "Unauthorized access" });
-  });
-
-  it("should clear cookie and return 401 if parsing user throws error", async () => {
-    (jwt.verify as jest.Mock).mockReturnValue("not_json");
-    await refreshToken(req, res);
-    expect(res.clearCookie).toHaveBeenCalledWith("refreshToken");
-    expect(res.status).toHaveBeenCalledWith(401);
-    expect(res.json).toHaveBeenCalledWith({ msg: "Unauthorized access" });
-  });
-
-  it("should clear cookie and return 401 if user data is invalid", async () => {
-    (jwt.verify as jest.Mock).mockReturnValue(12345);
-    await refreshToken(req, res);
-    expect(logger.warn).toHaveBeenCalledWith("Invalid user data in refresh token, forcing login.");
-    expect(res.clearCookie).toHaveBeenCalledWith("refreshToken");
-    expect(res.status).toHaveBeenCalledWith(401);
-    expect(res.json).toHaveBeenCalledWith({ msg: "Unauthorized access" });
-  });
-
-  it("should handle expired token error", async () => {
-    (jwt.verify as jest.Mock).mockImplementation(() => {
-      const err: any = new Error("Token expired");
-      err.name = "TokenExpiredError";
-      throw err;
-    });
-    await refreshToken(req, res);
-    expect(logger.warn).toHaveBeenCalledWith("Refresh token expired, forcing login.");
-    expect(logger.error).toHaveBeenCalledWith("Failed to refresh token: Token expired");
-    expect(res.clearCookie).toHaveBeenCalledWith("refreshToken");
-    expect(res.sendStatus).toHaveBeenCalledWith(401);
-  });
-
-  it("should handle other errors", async () => {
-    (jwt.verify as jest.Mock).mockImplementation(() => {
-      throw new Error("Some error");
-    });
-    await refreshToken(req, res);
-    expect(res.clearCookie).toHaveBeenCalledWith("refreshToken");
-    expect(res.sendStatus).toHaveBeenCalledWith(401);
-  });
-});
-
-describe("logOut", () => {
-  let res: any;
-  let req: any;
-  beforeEach(() => {
-    res = {
-      clearCookie: jest.fn().mockReturnThis(),
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn()
-    };
-    jest.clearAllMocks();
-  });
-
-  it("should clear accessToken cookie and return 200 with success message", async () => {
-    await logOut(req, res);
-    expect(res.clearCookie).toHaveBeenCalledWith("accessToken");
-    expect(logger.info).toHaveBeenCalledWith("User logged out successfully.");
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ msg: "Logged out successfully" });
-  });
-
-  it("should handle errors and return 500", async () => {
-    res.clearCookie.mockImplementation(() => { throw new Error("fail") });
-    await logOut(req, res);
-    expect(logger.error).toHaveBeenCalledWith("Logout attempt failed: fail");
-    expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({ error: "Failed to log out" });
-  });
-});
-
-describe("googleCallback", () => {
-  let req: any;
-  let res: any;
-
-  beforeEach(() => {
-    req = {
-      user: {
-        id: "google_id",
-        username: "googleuser"
-      }
-    };
-    res = {
-      cookie: jest.fn().mockReturnThis(),
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn()
-    };
-    process.env.REFRESH_SECRET = "refresh_secret";
-    process.env.JWT_SECRET = "jwt_secret";
-    jest.clearAllMocks();
-  });
-
-  it("should generate tokens, set cookie, and return user info", () => {
-    googleCallback(req, res);
-
-    expect(jwt.sign).toHaveBeenCalledWith(
-      { id: "google_id", username: "googleuser" },
-      "refresh_secret",
-      { expiresIn: "7d" }
-    );
-    expect(jwt.sign).toHaveBeenCalledWith(
-      { id: "google_id", username: "googleuser" },
-      "jwt_secret",
-      { expiresIn: "15m" }
-    );
-    expect(res.cookie).toHaveBeenCalledWith(
-      "refreshToken",
-      "mockedToken",
-      { httpOnly: true, secure: true, sameSite: "strict" }
-    );
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({
-      accessToken: "mockedToken",
-      user: { id: "google_id", username: "googleuser" }
-    });
-  });
-});

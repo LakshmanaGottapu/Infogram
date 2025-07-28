@@ -4,7 +4,7 @@ import RegisterLogin from './components/RegisterLogin';
 import useAuth from './hooks/useAuth';
 
 function App() {
-  const {user, setUser} = useAuth();
+  const {user, setUser, loading} = useAuth();
   function handleLogout() {
     //clear refresh token by calling logout endpoint
     fetch('/api/auth/logout')
@@ -19,7 +19,8 @@ function App() {
       console.log('Logout successful');
     })
   }
-  return (
+  if(loading) return <div>...loading</div>
+  else return (
     <div className="App">
       <span className="text-3xl font-bold">Hello World</span>
       {

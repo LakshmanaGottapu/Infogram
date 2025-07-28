@@ -2,8 +2,8 @@ import User from "../models/User.js";
 import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import logger from "../config/logger.js";
-const ACCESS_TOKEN_DURATION = '1m';
-const REFRESH_TOKEN_DURATION = '3m';
+export const ACCESS_TOKEN_DURATION = '5m';
+export const REFRESH_TOKEN_DURATION = '15m';
 export async function registerUser(req: Request, res: Response) {
     const { username, email, password } = req.body;
     try {
@@ -134,13 +134,12 @@ export function googleCallback(req: Request, res: Response) {
     // Successful authentication, generate JWT and respond
     const user = req.user as { id: string, username: string };
     const refreshToken = jwt.sign({ id: user.id, username: user.username }, process.env.REFRESH_SECRET, { expiresIn: REFRESH_TOKEN_DURATION });
-    const accessToken = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_DURATION });
     res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
         secure: true,
         sameSite: 'strict'
     });
-    res.status(200).json({ accessToken, user });
+    res.redirect(`http://localhost:5173`);
 }
 
 export async function logOut(_: Request, res: Response): Promise<void> {

@@ -2,10 +2,11 @@ import mongoose from "mongoose";
 import User from "../models/User.js";
 // Helper function to generate unique username
 export async function generateUniqueUsername(baseUsername: string): Promise<string> {
-  let username = baseUsername;
+  const cleanUsername = baseUsername.trim().toLowerCase().replace(/\s+/g, "_"); // Clean username to be URL-friendly
+  let username = cleanUsername;
   let suffix = 1;
   while (await User.findOne({ username })) {
-    username = `${baseUsername}_${suffix++}`;
+    username = `${cleanUsername}_${suffix++}`;
   }
   return username;
 }

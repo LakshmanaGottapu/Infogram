@@ -102,7 +102,10 @@ function RegisterLogin({setUser}: {setUser: React.Dispatch<React.SetStateAction<
         const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
         return passwordPattern.test(input);
     }
-
+    function handleGoogleSignIn() {
+        // Redirect to Google OAuth endpoint    
+        window.location.href = '/api/auth/google';
+    }
     return (
         <div className="login-form">
             {isLogin ? (
@@ -131,6 +134,7 @@ function RegisterLogin({setUser}: {setUser: React.Dispatch<React.SetStateAction<
                     </p>
                 </>
             )}
+            <button className="google-button mt-2" onClick={handleGoogleSignIn}>Login with Google</button>
             {errors.length > 0 && (
                 <div className="error-messages">
                     {errors.map((error, index) => (
