@@ -6,6 +6,7 @@ import AuthContextProvider from './context/AuthProvider.tsx';
 import ProtectedRoute from './components/ProtectedRoute.tsx';
 import Feed from './components/Feed.tsx';
 import RegisterLogin from './components/RegisterLogin.tsx';
+import LoadSpinner from './components/LoadSpinner.tsx';
 const router = createBrowserRouter([
   {
     path: '/',
@@ -29,6 +30,14 @@ const router = createBrowserRouter([
   {
     path: 'about',
     element: <div>About Page</div>
+  },
+  {
+    path: 'loader',
+    element:  <LoadSpinner className='h-screen' />
+  },
+  {
+    path: 'profile',
+    element: <div>Profile Page</div>
   }
 ])
 
