@@ -10,8 +10,7 @@ import userRouter from './routes/userRouter.js';
 import authRouter from './routes/authRouter.js';
 import setupSwagger from './config/swagger.js'; // Import the Swagger setup function
 import cookieParser from 'cookie-parser';
-import dotenv from 'dotenv';
-dotenv.config(); // Load environment variables from .env file
+
 // Update the path if the file is named differently or located elsewhere
 import { authenticate, optionalAuth } from './middleware/authMiddleware.js';
 const app:Application = express();
@@ -57,7 +56,7 @@ app.get("/", optionalAuth, (req:Request, res:Response) => {
   `) 
 });
 app.get("/feed", authenticate, (req:Request, res:Response) => {
-  res.send(`Welcome to the feed, ${req.user}!`);
+  res.send(`Welcome to the feed, ${JSON.stringify(req.user)}!`);
 });
 
 export default app;
